@@ -16,5 +16,5 @@ public:
 
 private:
     struct HSDDatasetImpl;
-    std::unique_ptr<HSDDatasetImpl> m_impl;
+    std::shared_ptr<HSDDatasetImpl> m_impl;
 };

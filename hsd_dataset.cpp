@@ -4,6 +4,10 @@
 #include <iostream>
 #include <vector>
 #include <string>
+#include <unordered_map>
+#include <thread>
+#include <mutex>
+#include <random>
 
 #include <boost/filesystem.hpp>
 #include <boost/date_time.hpp>
@@ -27,6 +31,18 @@ struct Stock
     torch::Tensor HistoricalData;
 };
 
+struct ThreadData
+{
+    typedef unique_ptr<ThreadData> Ptr;
+
+    ThreadData(size_t idx)
+        : m_idx(idx), m_rand(23 + 1001 * idx)
+    {}
+
+    size_t m_idx;
+    std::default_random_engine m_rand;
+};
+
 struct HSDDataset::HSDDatasetImpl
 {
     HSDDatasetImpl(size_t historySize)
@@ -36,6 +52,9 @@ struct HSDDataset::HSDDatasetImpl
 
     vector<Stock::Ptr> stocks;
     size_t historySize;
+
+    std::mutex m_lock;
+    std::unordered_map<std::thread::id, ThreadData::Ptr> m_threadMap;
 };
 
 HSDDataset::HSDDataset(string root, size_t historySize)
@@ -130,6 +149,12 @@ HSDDataset::HSDDataset(string root, size_t historySize)
             if ((m_impl->stocks.size() % 250) == 0) {
                 cout << "\r" << m_impl->stocks.size() << " of " << files.size() << flush;
             }
+
+#if _DEBUG
+            if (m_impl->stocks.size() > 512) {
+                break;
+            }
+#endif
         }
     }
 
@@ -145,10 +170,36 @@ HSDDataset::~HSDDataset()
 
 c10::optional<size_t> HSDDataset::size() const
 {
-    return {};
+    return m_impl->stocks.size();
 }
 
 HSDDataset::ExampleType HSDDataset::get(size_t index)
 {
-    throw runtime_error("Not implemented yet!");
+    ThreadData *tData = nullptr;
+    {
+        lock_guard<mutex> lock(m_impl->m_lock);
+
+        auto id = this_thread::get_id();
+
+        auto iter = m_impl->m_threadMap.find(id);
+        if (iter == m_impl->m_threadMap.end()) {
+            auto upData = make_unique<ThreadData>(m_impl->m_threadMap.size());
+            iter = m_impl->m_threadMap.emplace(id, move(upData)).first;
+        }
+
+        tData = iter->second.get();
+    }
+
+    Stock *stock = m_impl->stocks[index].get();
+
+    torch::Tensor hist = stock->HistoricalData;
+
+    std::uniform_int_distribution<long> windowDist(0, hist.size(0) - m_impl->historySize - 1);
+
+    long startIdx = windowDist(tData->m_rand);
+
+    torch::Tensor sample = hist.slice(0, startIdx, startIdx + m_impl->historySize);
+    torch::Tensor label = hist.select(0, startIdx + m_impl->historySize);
+
+    return { sample, label };
 }
