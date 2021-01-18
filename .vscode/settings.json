@@ -1,5 +1,7 @@
 {
     "files.associations": {
         "thread": "cpp"
-    }
+    },
+    "editor.autoClosingBrackets": "never",
+    "editor.autoClosingQuotes": "never"
 }

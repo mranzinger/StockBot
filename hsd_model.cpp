@@ -34,7 +34,7 @@ HSDOutput HSDModel::forward(torch::Tensor histData, torch::Tensor dateTarget)
 {
     auto encAll = m_histEncoder(histData);
 
-    torch::Tensor histEnc = get<1>(encAll);
+    torch::Tensor histEnc = get<1>(encAll).select(0, -1);
 
     torch::Tensor dateEmbed = m_targetEmbedder(dateTarget);
 

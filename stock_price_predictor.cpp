@@ -40,11 +40,13 @@ int main() {
 
         torch::Tensor loss = criterion->forward(output, priceTarget);
 
+        loss.backward();
+        optimizer.step();
+
+        cout << "Step " << step << " - Loss: " << loss.item<float>() << endl;
+
         step += 1;
 
-        break;
+        if (step == 100) break;
     }
-
-    torch::Tensor tensor = torch::eye(3);
-    cout << tensor << endl;
 }

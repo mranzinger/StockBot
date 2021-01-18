@@ -18,6 +18,7 @@ using namespace std;
 namespace fs = boost::filesystem;
 
 static const size_t MIN_NUM_SAMPLES = 1024;
+static const size_t EXAMPLES_PER_EPOCH = 10000;
 
 struct Stock
 {
@@ -82,10 +83,13 @@ HSDDataset::HSDDataset(string root, size_t historySize)
          maxSamples = numeric_limits<long>::min(),
          avgSamples = 0;
 
-#ifdef NDEBUG
-    #pragma omp parallel for
+    size_t numFiles = files.size();
+#ifndef NDEBUG
+    numFiles = min<size_t>(numFiles, 512);
 #endif
-    for (size_t z = 0; z < files.size(); ++z) {
+
+    #pragma omp parallel for
+    for (size_t z = 0; z < numFiles; ++z) {
         auto p = files[z];
 
         auto bn = fs::basename(p);
@@ -140,9 +144,7 @@ HSDDataset::HSDDataset(string root, size_t historySize)
         }
         stock->HistoricalData = t;
 
-#ifdef NDEBUG
         #pragma omp critical
-#endif
         {
             minSamples = min(minSamples, t.size(0));
             maxSamples = max(maxSamples, t.size(0));
@@ -153,12 +155,6 @@ HSDDataset::HSDDataset(string root, size_t historySize)
             if ((m_impl->stocks.size() % 250) == 0) {
                 cout << "\r" << m_impl->stocks.size() << " of " << files.size() << flush;
             }
-
-#ifndef NDEBUG
-            if (m_impl->stocks.size() > 512) {
-                break;
-            }
-#endif
         }
     }
 
@@ -184,11 +180,13 @@ long HSDDataset::closingPriceDim() const
 
 c10::optional<size_t> HSDDataset::size() const
 {
-    return m_impl->stocks.size();
+    return m_impl->stocks.size() * EXAMPLES_PER_EPOCH;
 }
 
 HSDDataset::ExampleType HSDDataset::get(size_t index)
 {
+    index = index % m_impl->stocks.size();
+
     ThreadData *tData = nullptr;
     {
         lock_guard<mutex> lock(m_impl->m_lock);
