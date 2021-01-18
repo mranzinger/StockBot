@@ -14,6 +14,9 @@ public:
     virtual c10::optional<size_t> size() const override;
     virtual ExampleType get(size_t index) override;
 
+    size_t numFields() const;
+    long closingPriceDim() const;
+
 private:
     struct HSDDatasetImpl;
     std::shared_ptr<HSDDatasetImpl> m_impl;

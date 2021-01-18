@@ -82,7 +82,9 @@ HSDDataset::HSDDataset(string root, size_t historySize)
          maxSamples = numeric_limits<long>::min(),
          avgSamples = 0;
 
+#ifdef NDEBUG
     #pragma omp parallel for
+#endif
     for (size_t z = 0; z < files.size(); ++z) {
         auto p = files[z];
 
@@ -138,7 +140,9 @@ HSDDataset::HSDDataset(string root, size_t historySize)
         }
         stock->HistoricalData = t;
 
+#ifdef NDEBUG
         #pragma omp critical
+#endif
         {
             minSamples = min(minSamples, t.size(0));
             maxSamples = max(maxSamples, t.size(0));
@@ -150,7 +154,7 @@ HSDDataset::HSDDataset(string root, size_t historySize)
                 cout << "\r" << m_impl->stocks.size() << " of " << files.size() << flush;
             }
 
-#if _DEBUG
+#ifndef NDEBUG
             if (m_impl->stocks.size() > 512) {
                 break;
             }
@@ -166,6 +170,16 @@ HSDDataset::HSDDataset(string root, size_t historySize)
 HSDDataset::~HSDDataset()
 {
     // DO NOT DELETE
+}
+
+size_t HSDDataset::numFields() const
+{
+    return 5;
+}
+
+long HSDDataset::closingPriceDim() const
+{
+    return 4;
 }
 
 c10::optional<size_t> HSDDataset::size() const
@@ -194,12 +208,20 @@ HSDDataset::ExampleType HSDDataset::get(size_t index)
 
     torch::Tensor hist = stock->HistoricalData;
 
-    std::uniform_int_distribution<long> windowDist(0, hist.size(0) - m_impl->historySize - 1);
+    std::uniform_int_distribution<long> windowDist(0, hist.size(0) - m_impl->historySize - 2);
 
     long startIdx = windowDist(tData->m_rand);
 
-    torch::Tensor sample = hist.slice(0, startIdx, startIdx + m_impl->historySize);
-    torch::Tensor label = hist.select(0, startIdx + m_impl->historySize);
+    long windStart = startIdx + m_impl->historySize;
+    torch::Tensor sample = hist.slice(0, startIdx, windStart);
+
+    long windEnd = min(windStart + 150, hist.size(0));
+
+    std::uniform_int_distribution<long> targetDist(windStart, windEnd - 1);
+
+    long targIdx = targetDist(tData->m_rand);
+
+    torch::Tensor label = hist.select(0, targIdx);
 
     return { sample, label };
 }

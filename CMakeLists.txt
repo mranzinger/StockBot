@@ -15,6 +15,8 @@ endif()
 add_executable(stock_price_predictor
                stock_price_predictor.cpp
                hsd_dataset.cpp
+               hsd_model.cpp
+               hsd_loss.cpp
 )
 target_link_libraries(stock_price_predictor
                       ${TORCH_LIBRARIES}
