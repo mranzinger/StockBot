@@ -10,7 +10,8 @@ HSDModel::HSDModel(size_t histLen, size_t numFields, size_t embedDim)
         torch::nn::GRU(torch::nn::GRUOptions(numFields, embedDim)
                                          .num_layers(3)
                                          .batch_first(true)
-                                         .bidirectional(false)));
+                                         .bidirectional(false)
+                                         .dropout(0.1)));
 
     m_targetEmbedder = register_module("m_targetEmbedder",
         torch::nn::Linear(1, embedDim)
@@ -19,10 +20,10 @@ HSDModel::HSDModel(size_t histLen, size_t numFields, size_t embedDim)
     m_jointEncoder = register_module("m_jointEncoder",
         torch::nn::Sequential(
             torch::nn::ReLU(),
-            torch::nn::Dropout(0.5),
+            torch::nn::Dropout(0.1),
             torch::nn::Linear(embedDim * 2, embedDim * 2),
             torch::nn::ReLU(),
-            torch::nn::Dropout(0.5),
+            torch::nn::Dropout(0.1),
             torch::nn::Linear(embedDim * 2, embedDim),
             torch::nn::ReLU(),
             torch::nn::Linear(embedDim, 2)

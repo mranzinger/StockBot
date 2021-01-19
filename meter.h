@@ -3,6 +3,7 @@
 #include <torch/torch.h>
 
 #include <unordered_map>
+#include <vector>
 #include <iostream>
 
 template<typename T>
@@ -69,8 +70,16 @@ private:
 };
 
 template<typename T>
+class MeterDict;
+
+template<typename T>
+std::ostream &operator<<(std::ostream &os, MeterDict<T> &meters);
+
+template<typename T>
 class MeterDict
 {
+    template<typename K>
+    friend std::ostream &operator<<(std::ostream &os, MeterDict<K> &meters);
 public:
     typedef std::unordered_map<std::string, NamedMeter<T>> inner_map_t;
 
@@ -81,6 +90,7 @@ public:
         auto iter = m_meters.find(name);
         if (iter == m_meters.end()) {
             iter = m_meters.emplace(name, NamedMeter<T>(name, m_resetOnValue)).first;
+            m_addOrder.push_back(name);
         }
 
         iter->second.Add(value);
@@ -108,6 +118,7 @@ public:
 private:
     inner_map_t m_meters;
     bool m_resetOnValue;
+    std::vector<std::string> m_addOrder;
 };
 
 template<typename T>
@@ -123,12 +134,12 @@ inline std::ostream &operator<<(std::ostream &os, MeterDict<T> &meters)
     os << "{";
     if (not meters.empty()) {
         bool first = true;
-        for (auto &p : meters) {
+        for (auto &mName : meters.m_addOrder) {
             if (not first) {
                 os << ", ";
             }
 
-            os << p.second;
+            os << meters.m_meters.find(mName)->second;
 
             first = false;
         }

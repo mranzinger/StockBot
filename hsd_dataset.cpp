@@ -221,5 +221,8 @@ HSDDataset::ExampleType HSDDataset::get(size_t index)
 
     torch::Tensor label = hist.select(0, targIdx);
 
+    // Predict the deltas
+    label = label - sample.select(0, -1);
+
     return { sample, label };
 }

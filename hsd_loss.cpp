@@ -10,8 +10,8 @@ LossInfo HSDLoss::forward(const HSDOutput &x, torch::Tensor y)
 
     auto uncSq = x.Certainty * x.Certainty;
 
-    // auto loss = (mse / (2 * uncSq)) + 0.5 * uncSq.log();
-    auto loss = mse;
+    auto loss = (mse / (2 * uncSq)) + 0.5 * uncSq;
+    // auto loss = mse;
 
     LossInfo ret;
     ret.Loss = loss.mean();
