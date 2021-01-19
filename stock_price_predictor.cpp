@@ -4,8 +4,11 @@
 #include "hsd_dataset.h"
 #include "hsd_model.h"
 #include "hsd_loss.h"
+#include "meter.h"
 
 using namespace std;
+
+void print_loss_components(const LossInfo &l);
 
 int main() {
     size_t historySize = 128;
@@ -23,9 +26,18 @@ int main() {
     model->to(torch::kCUDA);
     cout << "Done" << endl;
 
-    auto optimizer = torch::optim::Adam(model->parameters(), /*lr=*/1e-3);
+    for (auto &p : model->parameters()) {
+        if (p.dim() >= 2) {
+            torch::nn::init::kaiming_uniform_(p);
+        }
+    }
+
+    auto optimizer = torch::optim::Adam(model->parameters(), torch::optim::AdamOptions(1e-3).weight_decay(5e-4));
+    // auto optimizer = torch::optim::SGD(model->parameters(), torch::optim::SGDOptions(1e-4).momentum(0.99).weight_decay(5e-4));
 
     auto criterion = make_shared<HSDLoss>();
+
+    MeterDict<float> lossMeters;
 
     size_t step = 0;
     for (torch::data::Example<> &batch : *loader) {
@@ -38,15 +50,32 @@ int main() {
 
         torch::Tensor priceTarget = allTargets.slice(1, hsdDataset.closingPriceDim(), hsdDataset.closingPriceDim() + 1);
 
-        torch::Tensor loss = criterion->forward(output, priceTarget);
+        LossInfo loss = criterion->forward(output, priceTarget);
 
-        loss.backward();
+        loss.Loss.backward();
         optimizer.step();
 
-        cout << "Step " << step << " - Loss: " << loss.item<float>() << endl;
+        lossMeters.Add("Global", loss.Loss.item<float>());
+        for (auto &kv : loss.Components) {
+            lossMeters.Add(kv.first, kv.second.item<float>());
+        }
 
         step += 1;
 
-        if (step == 100) break;
+        if ((step % 100) == 0) {
+            cout << "Step " << step << " - Losses " << lossMeters << endl;
+        }
+    }
+}
+
+void print_loss_components(const LossInfo &l)
+{
+    cout << "Loss: " << l.Loss.item<float>();
+
+    if (l.Components.size() > 0) {
+        cout << " - Components - " << l.Components[0].first << ": " << l.Components[0].second.item<float>();
+        for (size_t i = 1; i < l.Components.size(); ++i) {
+            cout << ", " << l.Components[i].first << ": " << l.Components[i].second.item<float>();
+        }
     }
 }

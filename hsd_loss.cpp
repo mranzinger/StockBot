@@ -4,13 +4,22 @@ namespace nn = torch::nn;
 namespace F = nn::functional;
 
 
-torch::Tensor HSDLoss::forward(const HSDOutput &x, torch::Tensor y)
+LossInfo HSDLoss::forward(const HSDOutput &x, torch::Tensor y)
 {
     auto mse = F::mse_loss(x.ClosingPrice, y, torch::kNone);
 
-    auto expUnc = 2 * x.Certainty.exp();
+    auto uncSq = x.Certainty * x.Certainty;
 
-    auto loss = (mse / expUnc) + 0.5 * x.Certainty;
+    // auto loss = (mse / (2 * uncSq)) + 0.5 * uncSq.log();
+    auto loss = mse;
 
-    return loss.mean();
+    LossInfo ret;
+    ret.Loss = loss.mean();
+
+    ret.Components = {
+        { "MSE", mse.detach().mean() },
+        { "Uncertainty", uncSq.detach().mean() }
+    };
+
+    return ret;
 }
