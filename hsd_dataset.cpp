@@ -62,7 +62,7 @@ HSDDataset::HSDDataset(string root, size_t historySize)
     : m_impl(new HSDDatasetImpl{historySize})
 {
     if (root.empty()) {
-        root = "../huge_stock_dataset";
+        root = "/home/mranzinger/datasets/huge_stock_dataset";
     }
 
     long baseJulian = boost::gregorian::date(2010, 1, 1).julian_day();

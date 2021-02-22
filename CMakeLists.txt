@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.0 FATAL_ERROR)
 project(stock_bot)
 
 find_package(Torch REQUIRED)
-find_package(Boost REQUIRED COMPONENTS filesystem date_time)
+find_package(Boost REQUIRED COMPONENTS system filesystem date_time)
 include_directories(${Boost_INCLUDE_DIRS})
 
 find_package(OpenMP)
@@ -18,7 +18,9 @@ add_executable(stock_price_predictor
                hsd_model.cpp
                hsd_loss.cpp
 )
+
 target_link_libraries(stock_price_predictor
+                      ${Boost_LIBRARIES}
                       ${TORCH_LIBRARIES}
-                      ${Boost_LIBRARIES})
+)
 set_property(TARGET stock_price_predictor PROPERTY CXX_STANDARD 14)
